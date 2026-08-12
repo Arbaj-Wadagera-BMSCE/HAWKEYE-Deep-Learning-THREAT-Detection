@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hawkeye // System Access</title>
+    <style>
+        :root {
+            --color-bg: #0d0f13;
+            --color-surface: #1a1c20;
+            --color-primary: #00ffff;
+            --color-danger: #ff4136;
+            --color-text: #e0e0e0;
+            --font-mono: "Fira Code", "Consolas", "Courier New", monospace;
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0), var(--color-primary), rgba(0, 0, 0, 0));
+            animation: scan 4s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+
+        .auth-container {
+            background-color: rgba(26, 28, 32, 0.9);
+            border: 1px solid var(--color-primary);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+            padding: 40px;
+            border-radius: 8px;
+            width: 350px;
+            text-align: center;
+            z-index: 10;
+            position: relative;
+        }
+
+        /* Scanline/Glow effect on container */
+        .auth-container::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.1);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .auth-container h1 {
+            color: var(--color-primary);
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px var(--color-primary);
+        }
+
+        .auth-container h1::before { content: "[ "; }
+        .auth-container h1::after { content: " ]"; }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #000;
+            border: 1px solid #444;
+            color: var(--color-text);
+            border-radius: 4px;
+            box-sizing: border-box; 
+            font-family: var(--font-mono);
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        button {
+            background-color: var(--color-primary);
+            color: #000;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-family: var(--font-mono);
+            
+            /* 3D Tilt properties */
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            will-change: transform;
+            transition: transform 0.1s linear, box-shadow 0.3s ease;
+        }
+
+        /* Button Shine Effect */
+        button::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(
+                circle 150px at var(--mouse-x, 0) var(--mouse-y, 0),
+                rgba(255, 255, 255, 0.5),
+                transparent
+            );
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+            z-index: 1;
+            pointer-events: none; 
+        }
+
+        button:hover {
+            background-color: #fff;
+            color: #000;
+            box-shadow: 0 0 15px var(--color-primary), 0 0 25px var(--color-primary);
+        }
+        button:hover::before {
+            opacity: 1;
+        }
+        button:active {
+            transform: scale(0.98);
+            box-shadow: 0 0 5px var(--color-primary);
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        #error-message, #success-message {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        #error-message { color: var(--color-danger); }
+        #success-message { color: #00ff7f; }
+
+        .form-toggle {
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        .form-toggle a {
+            color: var(--color-primary);
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .form-toggle a:hover { text-decoration: underline; }
+
+        /* Form switching container */
+        .form-wrapper {
+            position: relative;
+            height: 320px; 
+        }
+        .auth-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            opacity: 0;
+            transform: scale(0.98);
+            pointer-events: none;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+        .auth-view.is-active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="form-wrapper">
+            <div id="login-view" class="auth-view is-active">
+                <h1>HAWKEYE</h1>
+                <p>Threat Analysis Login</p>
+                <form id="login-form">
+                    <input type="email" id="login-email" placeholder="[ Email ]" required>
+                    <input type="password" id="login-password" placeholder="[ Password ]" required>
+                    <button type="submit" id="login-btn">Authenticate</button>
+                </form>
+                <p id="login-error" class="error-message"></p>
+                <div class="form-toggle">
+                    <a id="show-signup">Need an account? [ Register ]</a><br>
+                    <a id="show-forgot">Forgot password?</a>
+                </div>
+            </div>
+
+            <div id="signup-view" class="auth-view">
+                <h1>REGISTER</h1>
+                <p>Create System ID</p>
+                <form id="signup-form">
+                    <input type="text" id="signup-username" placeholder="[ Username ]" required>
+                    <input type="email" id="signup-email" placeholder="[ Email ]" required>
+                    <input type="password" id="signup-password" placeholder="[ Password ]" required>
+                    <button type="submit" id="signup-btn">Create Account</button>
+                </form>
+                <p id="signup-error" class="error-message"></p>
+                <div class="form-toggle">
+                    <a id="show-login-from-signup">[ Back to Login ]</a>
+                </div>
+            </div>
+            
+            <div id="forgot-view" class="auth-view">
+                <h1>RESET</h1>
+                <p>Password Recovery</p>
+                <form id="forgot-form">
+                    <input type="email" id="forgot-email" placeholder="[ Email ]" required>
+                    <button type="submit" id="forgot-btn">Send Reset Link</button>
+                </form>
+                <p id="forgot-error" class="error-message"></p>
+                <p id="forgot-success" class="success-message"></p>
+                <div class="form-toggle">
+                    <a id="show-login-from-forgot">[ Back to Login ]</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyBBwTPmW2GA8TJxyaF-pT69_FdMvR6kv88",
+          authDomain: "hawkeye-v3.firebaseapp.com",
+          projectId: "hawkeye-v3",
+          storageBucket: "hawkeye-v3.firebasestorage.app",
+          messagingSenderId: "752670736435",
+          appId: "1:752670736435:web:de2cca17b89336d4bca346",
+          measurementId: "G-4M3W4H4BQ6"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // --- View Toggling ---
+        const loginView = document.getElementById('login-view');
+        const signupView = document.getElementById('signup-view');
+        const forgotView = document.getElementById('forgot-view');
+        
+        document.getElementById('show-signup').addEventListener('click', () => {
+            loginView.classList.remove('is-active');
+            signupView.classList.add('is-active');
+        });
+        document.getElementById('show-forgot').addEventListener('click', () => {
+            loginView.classList.remove('is-active');
+            forgotView.classList.add('is-active');
+        });
+        document.getElementById('show-login-from-signup').addEventListener('click', () => {
+            loginView.classList.add('is-active');
+            signupView.classList.remove('is-active');
+        });
+        document.getElementById('show-login-from-forgot').addEventListener('click', () => {
+            loginView.classList.add('is-active');
+            forgotView.classList.remove('is-active');
+        });
+
+        // --- Form Handling ---
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const forgotForm = document.getElementById('forgot-form');
+        
+        const loginError = document.getElementById('login-error');
+        const signupError = document.getElementById('signup-error');
+        const forgotError = document.getElementById('forgot-error');
+        const forgotSuccess = document.getElementById('forgot-success');
+
+        function showError(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+        function hideError(el) { el.textContent = ''; el.style.display = 'none'; }
+        function showSuccess(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.textContent = 'Authenticating...';
+            hideError(loginError);
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            signInWithEmailAndPassword(auth, email, password)
+                .then(userCredential => userCredential.user.getIdToken(true))
+                .then(idToken => fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: idToken })
+                }))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.href = '/'; 
+                    } else { throw new Error(data.message); }
+                })
+                .catch(error => {
+                    showError(loginError, error.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Authenticate';
+                });
+        });
+
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('signup-btn');
+            btn.disabled = true;
+            btn.textContent = 'Creating Account...';
+            hideError(signupError);
+            const username = document.getElementById('signup-username').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: password, username: username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    return signInWithEmailAndPassword(auth, email, password);
+                } else { throw new Error(data.message); }
+            })
+            .then(userCredential => userCredential.user.getIdToken(true))
+            .then(idToken => fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken: idToken })
+            }))
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.href = '/'; 
+                } else { throw new Error(data.message); }
+            })
+            .catch(error => {
+                showError(signupError, error.message);
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            });
+        });
+
+        forgotForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('forgot-btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            hideError(forgotError);
+            forgotSuccess.style.display = 'none';
+            const email = document.getElementById('forgot-email').value;
+            sendPasswordResetEmail(auth, email)
+                .then(() => {
+                    showSuccess(forgotSuccess, 'Password reset link sent to your email!');
+                    btn.disabled = false;
+                    btn.textContent = 'Send Reset Link';
+                })
+                .catch(error => {
+                    showError(forgotError, error.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Send Reset Link';
+                });
+        });
+
+        /* --- 3D TILT JAVASCRIPT FOR BUTTONS --- */
+        const tiltableElements = document.querySelectorAll('button');
+
+        tiltableElements.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const halfWidth = rect.width / 2;
+                const halfHeight = rect.height / 2;
+
+                const rotateX = (y - halfHeight) / halfHeight * -10; 
+                const rotateY = (x - halfWidth) / halfWidth * 10;   
+
+                card.style.transform = `perspective(500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(500px) rotateX(0deg) rotateY(0deg)';
+                card.style.setProperty('--mouse-x', '50%');
+                card.style.setProperty('--mouse-y', '50%');
+            });
+        });
+
+    </script>
+</body>
+</html>

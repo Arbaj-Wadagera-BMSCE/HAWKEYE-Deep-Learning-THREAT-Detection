@@ -1,0 +1,8 @@
+# requirements.txt
+ultralytics
+opencv-python
+numpy
+# For Action Recognition - requires PyTorch
+torch
+torchvision
+pytorchvideo

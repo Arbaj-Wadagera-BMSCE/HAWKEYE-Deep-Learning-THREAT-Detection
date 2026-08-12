@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hawkeye v3.2 Control Panel</title>
+    <style>
+        :root {
+            --color-bg: #1a1a1a;
+            --color-surface: #2c2c2c;
+            --color-primary: #00ffff;
+            --color-secondary: #00ff7f;
+            --color-danger: #ff4136;
+            --color-text: #e0e0e0;
+            --color-text-muted: #888;
+            --font-main: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+            --font-mono: "Fira Code", "Consolas", "Courier New", monospace;
+        }
+        body { font-family: var(--font-main); background-color: var(--color-bg); color: var(--color-text); margin: 0; padding: 24px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--color-primary);
+            padding-bottom: 10px;
+            margin-bottom: 24px;
+        }
+        .header h1 { margin: 0; color: var(--color-primary); font-weight: 600; letter-spacing: 1px; }
+        .header-controls { display: flex; align-items: center; }
+        .header-controls span { margin-right: 15px; color: var(--color-text-muted); font-size: 0.9rem; }
+        
+        .header-controls a {
+            background: none;
+            border: 1px solid var(--color-secondary);
+            color: var(--color-secondary);
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 15px;
+            transition: all 0.2s ease-out;
+        }
+        .header-controls a:hover {
+            background-color: var(--color-secondary);
+            color: #000;
+            box-shadow: 0 0 10px var(--color-secondary);
+        }
+        
+        #logout-btn {
+            background: none;
+            border: 1px solid var(--color-danger);
+            color: var(--color-danger);
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            will-change: transform;
+            transition: transform 0.1s linear, box-shadow 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+            font-family: var(--font-main);
+        }
+        #logout-btn:hover { 
+            background-color: var(--color-danger); 
+            color: white; 
+            box-shadow: 0 0 10px var(--color-danger); 
+        }
+        #logout-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .main-layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
+        .controls, .video-display-box { background: var(--color-surface); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+        .controls { padding: 20px; align-self: start; }
+        .section { margin-bottom: 25px; }
+        .section h2 { margin-top: 0; color: var(--color-secondary); font-size: 1.1rem; font-weight: 500; border-bottom: 1px solid #444; padding-bottom: 8px; }
+        label { display: block; font-size: 0.9rem; color: var(--color-text-muted); margin-bottom: 8px; }
+        
+        input[type="text"], input[type="number"] { width: 90%; background: var(--color-bg); border: 1px solid #555; color: var(--color-text); padding: 10px; border-radius: 4px; font-family: var(--font-main); } 
+        input[type="file"]::file-selector-button { background-color: #444; color: var(--color-text); border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; font-family: var(--font-main); }
+        
+        button {
+            background-color: var(--color-primary);
+            color: #000;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            will-change: transform;
+            transition: transform 0.1s linear, box-shadow 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+            font-family: var(--font-main);
+        }
+        button:hover {
+            background-color: #fff;
+            color: #000;
+            box-shadow: 0 0 15px var(--color-primary), 0 0 25px var(--color-primary);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #stop-stream-btn { background-color: var(--color-danger); color: white; }
+        #stop-stream-btn:hover { 
+            background-color: #ff7670; 
+            box-shadow: 0 0 15px var(--color-danger), 0 0 25px var(--color-danger);
+        }
+
+        .video-display-box { background: var(--color-surface); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+        #video-container { background: #000; border-radius: 8px 8px 0 0; overflow: hidden; position: relative; min-height: 500px; line-height: 0; }
+        #video-stream { width: 100%; height: auto; display: block; }
+        #status-message { margin-top: 15px; font-family: var(--font-mono); color: var(--color-text-muted); border: 1px dashed #444; padding: 10px; border-radius: 4px; background: #222; }
+        .loader { display: none; border: 4px solid #f3f3f3; border-top: 4px solid var(--color-primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .gallery-container { background: var(--color-surface); padding: 20px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); margin-top: -1px; }
+        .gallery-container h2 { margin-top: 0; color: var(--color-secondary); font-size: 1.1rem; font-weight: 500; border-bottom: 1px solid #444; padding-bottom: 8px; }
+        #gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; min-height: 150px; }
+        
+        #gallery img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid #555;
+            transition: transform 0.2s ease-out;
+        }
+        #gallery img:hover {
+            z-index: 20; 
+            transform: scale(1.05);
+        }
+
+        .info-container {
+            background: var(--color-surface);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            margin-top: 24px; 
+        }
+        .info-container h2 {
+            margin-top: 0;
+            color: var(--color-secondary);
+            font-size: 1.1rem;
+            font-weight: 500;
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .info-block h3 {
+            color: var(--color-primary);
+            font-size: 1rem;
+            border-bottom: 1px solid var(--color-primary);
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+        .info-block ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+        }
+        .info-block li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .info-block .tech-label {
+            font-weight: 600;
+            color: var(--color-text);
+        }
+        .info-block p {
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            line-height: 1.4;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>HAWKEYE // THREAT ANALYSIS v3.2</h1>
+            <div class="header-controls">
+                <span>Welcome, {{ user_name }}</span>
+                <a href="/statistics" style="margin-right: 15px; border-color: var(--color-secondary); color: var(--color-secondary);">[ View Stats ]</a>
+                <button id="logout-btn">Logout</button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <aside class="controls">
+                 <div class="section">
+                    <h2>LIVE SOURCE</h2>
+                    <label for="cam-index">Camera Index or URL:</label>
+                    <input type="text" id="cam-index" value="0" placeholder="0 or http://...">
+                    <button id="start-cam-btn">START LIVE FEED</button>
+                </div>
+                <div class="section">
+                    <h2>FILE ANALYSIS</h2>
+                    <form id="upload-form">
+                        <label for="video-file">Upload .mp4 File:</label>
+                        <input type="file" id="video-file" name="video" accept="video/mp4,video/x-m4v,video/avi">
+                        <button type="submit" id="upload-btn">1. UPLOAD</button>
+                    </form>
+                    <button id="start-upload-btn">2. START FROM UPLOAD</button>
+                </div>
+                <div class="section">
+                    <h2>SYSTEM CONTROL</h2>
+                    <button id="stop-stream-btn">STOP STREAM</button>
+                </div>
+                <div class="section">
+                    <h2>STATUS</h2>
+                    <div class="loader" id="loader"></div>
+                    <div id="status-message">Awaiting input...</div>
+                </div>
+            </aside>
+
+            <main class="video-display">
+                <div class="video-display-box">
+                    <div id="video-container">
+                        <img id="video-stream" src="" alt="">
+                    </div>
+                    <div class="gallery-container">
+                        <h2>RECENT EVENTS</h2>
+                        <div id="gallery">
+                            </div>
+                    </div>
+                </div>
+                
+                <div class="info-container">
+                    <h2>SYSTEM ANALYSIS</h2>
+                    <div class="info-grid">
+                        <div class="info-block">
+                            <h3>TECHNOLOGY STACK</h3>
+                            <ul>
+                                <li><span class="tech-label">Backend:</span> Flask (Python)</li>
+                                <li><span class="tech-label">Real-time AI:</span> YOLOv8 (Pose + Objects)</li>
+                                <li><span class="tech-label">Action AI:</span> PyTorchVideo (SlowFast)</li>
+                                <li><span class="tech-label">Emotion AI:</span> DeepFace (TensorFlow)</li>
+                                <li><span class="tech-label">Auth:</span> Firebase</li>
+                                <li><span class="tech-label">Frontend:</span> HTML5, CSS3, JavaScript</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-block">
+                            <h3>POTENTIAL USE CASES</h3>
+                            <ul>
+                                <li>Automated security monitoring</li>
+                                <li>Public space (CCTV) threat analysis</li>
+                                <li>Workplace safety compliance</li>
+                                <li>Retail loss prevention</li>
+                                <li>Smart-home security alerts</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-block">
+                            <h3>MODEL ACCURACY</h3>
+                            <p>Accuracy is dynamic and improves with your custom training:</p>
+                            <ul>
+                                <li><span class="tech-label">Weapons:</span> Trained on your custom images.</li>
+                                <li><span class="tech-label">Actions:</span> Trained on your custom video clips.</li>
+                                <li><span class="tech-label">Note:</span> More training data (especially "neutral" data) will always improve accuracy and reduce false positives.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Get all DOM elements
+        const startCamBtn = document.getElementById('start-cam-btn');
+        const stopStreamBtn = document.getElementById('stop-stream-btn');
+        const startUploadBtn = document.getElementById('start-upload-btn');
+        const uploadBtn = document.getElementById('upload-btn');
+        const videoFileInput = document.getElementById('video-file');
+        const videoStream = document.getElementById('video-stream');
+        const statusMessage = document.getElementById('status-message');
+        const loader = document.getElementById('loader');
+        const gallery = document.getElementById('gallery'); 
+        const logoutBtn = document.getElementById('logout-btn'); 
+
+        let isStreaming = false;
+
+        function setStatus(message, isLoading = false) {
+            statusMessage.textContent = message;
+            loader.style.display = isLoading ? 'block' : 'none';
+        }
+
+        function startStream() {
+            // Force reload the image source with a timestamp to bypass cache
+            videoStream.src = '/video_feed?t=' + new Date().getTime(); 
+            videoStream.style.display = 'block';
+            isStreaming = true;
+        }
+
+        function stopStreamUI() {
+             // Stop the browser from requesting new frames
+             videoStream.src = "";
+             videoStream.style.display = 'none';
+             isStreaming = false;
+        }
+
+        // --- 1. Start Camera Feed ---
+        startCamBtn.addEventListener('click', () => {
+            const camIndex = document.getElementById('cam-index').value;
+            setStatus('Initializing live feed...', true);
+            fetch('/start_stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_type: 'camera', cam_index: camIndex })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') { 
+                    startStream(); 
+                    setStatus('Live camera feed active.'); 
+                } 
+                else { setStatus('Error: ' + data.message); }
+            })
+            .catch(err => setStatus('Error: Could not connect to server.'));
+        });
+
+        // --- 2. Upload File ---
+        document.getElementById('upload-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const file = videoFileInput.files[0];
+            if (!file) { setStatus('Please select a video file.'); return; }
+            setStatus(`Uploading ${file.name}...`, true);
+            const formData = new FormData();
+            formData.append('video', file);
+            fetch('/upload_video', { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') { setStatus(data.message); } 
+                else { setStatus('Error: ' + data.message); }
+            })
+            .catch(err => setStatus('Error: Upload failed.'));
+        });
+
+        // --- 3. Start from Uploaded File ---
+        startUploadBtn.addEventListener('click', () => {
+            setStatus('Initializing from uploaded file...', true);
+            fetch('/start_stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_type: 'upload' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') { 
+                    startStream(); 
+                    setStatus('Processing uploaded file.'); 
+                } 
+                else { setStatus('Error: ' + data.message); }
+            })
+            .catch(err => setStatus('Error: Could not connect to server. Check Flask Console.'));
+        });
+
+        // --- 4. Stop Stream ---
+        stopStreamBtn.addEventListener('click', () => {
+            if (!isStreaming) return;
+            setStatus('Stopping stream...', true);
+            fetch('/stop_stream', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                setStatus(data.message);
+                stopStreamUI();
+            })
+            .catch(err => setStatus('Error: Could not stop stream.'));
+        });
+
+        // --- RECENT EVENTS GALLERY UPDATER ---
+        function updateRecentEvents() {
+            fetch('/get_recent_events')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    gallery.innerHTML = ''; 
+                    if (data.images.length === 0) {
+                        gallery.innerHTML = '<p style="color: var(--color-text-muted); font-style: italic;">No recent events detected.</p>';
+                    }
+                    data.images.forEach(filename => {
+                        const img = document.createElement('img');
+                        img.src = `static/recent_events/${filename}?t=${new Date().getTime()}`;
+                        gallery.appendChild(img);
+                    });
+                }
+            });
+        }
+        
+        logoutBtn.addEventListener('click', () => {
+            setStatus('Logging out...', true);
+            fetch('/api/logout', { method: 'POST' })
+            .then(() => {
+                window.location.href = '/auth';
+            });
+        });
+
+        setInterval(updateRecentEvents, 5000); 
+        updateRecentEvents(); 
+
+    </script>
+</body>
+</html>
